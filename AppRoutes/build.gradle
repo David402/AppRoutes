@@ -1,4 +1,5 @@
 apply plugin: 'android'
+
 android {
     compileSdkVersion 19
     buildToolsVersion '19.0.3'
@@ -24,7 +25,7 @@ dependencies {
 
 buildscript {
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.9.+'
+        classpath 'com.android.tools.build:gradle:0.10.+'
     }
     repositories {
         mavenCentral()
@@ -33,3 +34,11 @@ buildscript {
 repositories {
     mavenCentral()
 }
+
+task generateJavadoc(type: Javadoc) {
+    description "Generates Javadoc"
+    source = "./src/main/java"
+    ext.androidJar = "${android.sdkDirectory}/platforms/${android.compileSdkVersion}/android.jar"
+    classpath = files(classpath.files) + files(ext.androidJar)
+}
+
