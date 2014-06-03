@@ -15,5 +15,10 @@ target
 release.properties
 pom.xml.*
 
+#Gradle
+.gradle
+local.properties
+build
+
 #OSX
 .DS_Store

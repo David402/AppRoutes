@@ -1,8 +1,20 @@
-apply plugin: 'android'
+apply plugin: 'android-library'
+
+dependencies {
+}
+
+buildscript {
+    dependencies {
+        classpath 'com.android.tools.build:gradle:0.10.+'
+    }
+    repositories {
+        mavenCentral()
+    }
+}
 
 android {
     compileSdkVersion 19
-    buildToolsVersion '19.0.3'
+    buildToolsVersion '19.1.0'
 
     defaultConfig {
         minSdkVersion 10
@@ -17,28 +29,3 @@ android {
         }
     }
 }
-dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile 'com.android.support:support-v4:19.0.1'
-    compile 'com.android.support:appcompat-v7:19.0.1'
-}
-
-buildscript {
-    dependencies {
-        classpath 'com.android.tools.build:gradle:0.10.+'
-    }
-    repositories {
-        mavenCentral()
-    }
-}
-repositories {
-    mavenCentral()
-}
-
-task generateJavadoc(type: Javadoc) {
-    description "Generates Javadoc"
-    source = "./src/main/java"
-    ext.androidJar = "${android.sdkDirectory}/platforms/${android.compileSdkVersion}/android.jar"
-    classpath = files(classpath.files) + files(ext.androidJar)
-}
-
