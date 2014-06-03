@@ -33,10 +33,10 @@ import java.util.*;
  * {@code toString} -
  */
 public class AppRoutes {
-    private final Map<String, Collection<Route>> mRoutes
-            = new Hashtable<String, Collection<Route>>();
+    private final Map<String, Collection<Route>> mRoutes;
 
     public AppRoutes() {
+        mRoutes = new Hashtable<String, Collection<Route>>();
     }
 
     public void dispose() {
@@ -48,8 +48,8 @@ public class AppRoutes {
      * RouteListener will be informed once the uri path matched.
      * Note that the order will affect how the check been taken.
      *
-     * @param path Route path
-     * @param callback RouteListner responding to the matched route, can be null.
+     * @param path path
+     * @param callback callback to be notified when route is matched
      */
     public void addRoute(String path, Callback callback) {
         Uri uri = Uri.parse(path);
@@ -85,7 +85,7 @@ public class AppRoutes {
         routeUrl(url, null);
     }
 
-    public void routeUrl(String url, Map<String, String> params) {
+    public void routeUrl(String url, Map<String, String> parameters) {
         if (canRoute(url)) {
             return;
         }
@@ -94,7 +94,7 @@ public class AppRoutes {
         List<String> inputPaths = inputUri.getPathSegments();
 
         // Check if {@code inputUriStrings} is valid
-        if (inputPaths.size() == 0) {
+        if (inputPaths == null || inputPaths.size() == 0) {
             // Maybe call a global error handler here
             return;
         }
@@ -102,38 +102,54 @@ public class AppRoutes {
         for (Route route : mRoutes.get(inputUri.getScheme())) {
             Uri routeUri = route.uri;
             List<String> routePaths = routeUri.getPathSegments();
+            if (routePaths == null || routePaths.size() == 0) {
+                continue;
+            }
 
             if (routePaths.size() != inputPaths.size()) {
                 continue;
             }
 
-            if (params == null) {
-                params = new Hashtable<String, String>();
-            }
-            boolean isMatch = true;
-            int routePathsSize = routePaths.size();
-            for (int i = 0 ; i < routePathsSize ; i ++) {
-                if (routePaths.get(i).startsWith(":")) {
-                    params.put(routePaths.get(i).substring(1), inputPaths.get(i));
-                } else {
-                    if (!routePaths.get(i).equals(inputPaths.get(i))) {
-                        isMatch = false;
-                        break;
-                    }
-                }
-            }
-            if (!isMatch) {
+            Map<String, String> variables = parseVariablesForUri(inputUri, routePaths);
+            if (variables == null) {
                 continue;
+            } else {
+                parameters.putAll(variables);
             }
             if (route.callback != null) {
-                route.callback.call(params);
+                route.callback.call(parameters);
             }
         }
     }
 
     @Override
     public String toString() {
-        return super.toString();
+        return new StringBuilder("AppRoutes routes: ").append(mRoutes).toString();
+    }
+
+    private Map<String, String> parseVariablesForUri(final Uri uri, final List<String> routePaths) {
+        Map<String, String> routeParams = null;
+        Map<String, String> variables = new HashMap<String, String>();
+        List<String> inputPaths = uri.getPathSegments();
+
+        boolean isComponentCountEqual = routePaths.size() != inputPaths.size();
+        if (isComponentCountEqual) {
+            boolean isMatch = true;
+            int routePathsSize = routePaths.size();
+            for (int i = 0 ; i < routePathsSize ; i ++) {
+                if (routePaths.get(i).startsWith(":")) {
+                    variables.put(routePaths.get(i).substring(1), inputPaths.get(i));
+                } else if (!routePaths.get(i).equals(inputPaths.get(i))) {
+                    isMatch = false;
+                    break;
+                }
+            }
+            if (isMatch) {
+                routeParams = variables;
+            }
+        }
+
+        return routeParams;
     }
 
     private static class Route {
