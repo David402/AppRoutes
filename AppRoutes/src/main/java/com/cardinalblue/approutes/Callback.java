@@ -19,5 +19,5 @@ package com.cardinalblue.approutes;
 import java.util.Map;
 
 public interface Callback {
-    public void call(Map<String, String> parameters);
+    public void call(Map<String, Object> parameters);
 }

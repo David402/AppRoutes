@@ -16,10 +16,11 @@
 
 package com.cardinalblue.approutes;
 
-import android.net.Uri;
-import android.text.TextUtils;
-
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
+import com.cardinalblue.approutes.utils.TextUtils;
+import com.cardinalblue.approutes.utils.URIUtils;
 
 /**
  * /users/:uid/profile - auto parse :uid into parameter `uid`
@@ -52,7 +53,12 @@ public class AppRoutes {
      * @param callback callback to be notified when route is matched
      */
     public void addRoute(String path, Callback callback) {
-        Uri uri = Uri.parse(path);
+        URI uri;
+        try {
+            uri = new URI(path);
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("invalid URI format of parameter `path`");
+        }
         if (!TextUtils.isEmpty(uri.getScheme())) {
             if (mRoutes.containsKey(uri.getScheme())) {
                 mRoutes.get(uri.getScheme()).add(new Route(uri, callback));
@@ -77,49 +83,66 @@ public class AppRoutes {
      * @return {@code True} if can handle, otherwise return {@code False}
      */
     public boolean canRoute(String url) {
-        Uri uri = Uri.parse(url);
+        URI uri;
+        try {
+            uri = new URI(url);
+        } catch (URISyntaxException e) {
+            return false;
+        }
         return !TextUtils.isEmpty(uri.getScheme()) && mRoutes.containsKey(uri.getScheme());
     }
 
-    public void routeUrl(String url) {
-        routeUrl(url, null);
+    public boolean routeUrl(String url) {
+        return routeUrl(url, null);
     }
 
-    public void routeUrl(String url, Map<String, String> parameters) {
-        if (canRoute(url)) {
-            return;
+    public boolean routeUrl(String url, Map<String, Object> parameters) {
+        if (!canRoute(url)) {
+            return false;
         }
 
-        Uri inputUri = Uri.parse(url);
-        List<String> inputPaths = inputUri.getPathSegments();
+        URI inputUri;
+        try {
+           inputUri = new URI(url);
+        } catch (URISyntaxException e) {
+            return false;
+        }
+        String[] inputPaths = URIUtils.getPathSegments(inputUri);
 
         // Check if {@code inputUriStrings} is valid
-        if (inputPaths == null || inputPaths.size() == 0) {
+        if (inputPaths == null || inputPaths.length == 0) {
             // Maybe call a global error handler here
-            return;
+            return false;
         }
 
         for (Route route : mRoutes.get(inputUri.getScheme())) {
-            Uri routeUri = route.uri;
-            List<String> routePaths = routeUri.getPathSegments();
-            if (routePaths == null || routePaths.size() == 0) {
+            URI routeUri = route.uri;
+            String[] routePaths = URIUtils.getPathSegments(routeUri);
+            if (routePaths == null || routePaths.length == 0) {
                 continue;
             }
 
-            if (routePaths.size() != inputPaths.size()) {
+            if (routePaths.length != inputPaths.length) {
                 continue;
             }
 
             Map<String, String> variables = parseVariablesForUri(inputUri, routePaths);
             if (variables == null) {
                 continue;
-            } else {
-                parameters.putAll(variables);
             }
+
+            // Gotcha!
+            // Matched route is found, merge parameters and call callback if exists
+            if (parameters == null) {
+                parameters = new HashMap<String, Object>();
+            }
+            parameters.putAll(variables);
             if (route.callback != null) {
                 route.callback.call(parameters);
             }
+            break;
         }
+        return true;
     }
 
     @Override
@@ -127,19 +150,19 @@ public class AppRoutes {
         return new StringBuilder("AppRoutes routes: ").append(mRoutes).toString();
     }
 
-    private Map<String, String> parseVariablesForUri(final Uri uri, final List<String> routePaths) {
+    private Map<String, String> parseVariablesForUri(final URI uri, final String[] routePaths) {
         Map<String, String> routeParams = null;
         Map<String, String> variables = new HashMap<String, String>();
-        List<String> inputPaths = uri.getPathSegments();
+        String[] inputPaths = URIUtils.getPathSegments(uri);
 
-        boolean isComponentCountEqual = routePaths.size() != inputPaths.size();
+        boolean isComponentCountEqual = routePaths.length == inputPaths.length;
         if (isComponentCountEqual) {
             boolean isMatch = true;
-            int routePathsSize = routePaths.size();
+            int routePathsSize = routePaths.length;
             for (int i = 0 ; i < routePathsSize ; i ++) {
-                if (routePaths.get(i).startsWith(":")) {
-                    variables.put(routePaths.get(i).substring(1), inputPaths.get(i));
-                } else if (!routePaths.get(i).equals(inputPaths.get(i))) {
+                if (routePaths[i].startsWith(":")) {
+                    variables.put(routePaths[i].substring(1), inputPaths[i]);
+                } else if (!routePaths[i].equals(inputPaths[i])) {
                     isMatch = false;
                     break;
                 }
@@ -153,9 +176,9 @@ public class AppRoutes {
     }
 
     private static class Route {
-        public final Uri uri;
-        public final Callback callback;
-        public Route(Uri uri, Callback callback) {
+        private final URI uri;
+        private final Callback callback;
+        public Route(URI uri, Callback callback) {
             this.uri = uri;
             this.callback = callback;
         }
